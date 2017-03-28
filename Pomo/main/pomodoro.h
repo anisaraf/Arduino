@@ -1,3 +1,8 @@
+#ifndef POMODORO_H
+#define POMODORO_H
+
+#include "googlesheet.h"
+
 class Pomodoro {
   public:
     Pomodoro(int work_time, int break_time) {
@@ -5,7 +10,11 @@ class Pomodoro {
       this->completed_count_ = 0;
       this->work_time_ = work_time;
       this->animate = false;
-      this->Reset();
+      this->elapsed_time_ = 0;
+      this->paused_time_ = 0;
+      this->checked_time_ = -1;
+      this->paused_ = false;
+      this->distraction_count_ = 0;
     }
 
     int elapsed_time() {
@@ -24,6 +33,7 @@ class Pomodoro {
         this->completed_count_ +=1;
         this->Reset();
         this->animate = true;
+	this->LogSheetMessage("Completed");
       }
     }
 
@@ -42,9 +52,31 @@ class Pomodoro {
     }
 
     void Start() {
-      this->checked_time_ = round(millis() / 1000);
-      this->elapsed_time();
-      this->paused_ = false;
+      if(!IsStarted()) {
+	this->checked_time_ = round(millis() / 1000);
+	this->elapsed_time();
+	this->paused_ = false;
+	this->LogSheetMessage("Start");
+      }
+    }
+
+    void Stop() {
+      if(IsStarted()) {
+	this->elapsed_time_ = 0;
+	this->paused_time_ = 0;
+	this->checked_time_ = -1;
+	this->paused_ = false;
+	this->distraction_count_ = 0;
+	this->LogSheetMessage("Stop");
+      }
+    }
+
+    void Pause() {
+      if (IsStarted()) {
+        this->elapsed_time();
+        this->paused_ = true;
+	this->LogSheetMessage("Paused");
+      } 
     }
 
     bool IsPaused() {
@@ -57,24 +89,29 @@ class Pomodoro {
 
     void TogglePause() {
       if (IsStarted()) {
-        this->elapsed_time();
-        this->paused_ = !this->paused_;
+	Pause();
+      } else {
+	Start();
       }
     }
 
     void Reset() {
-      if(this->checked_time_ < 0) {
+      if(!IsStarted()) {
         this->Start();
         return;
       }
-      this->elapsed_time_ = 0;
-      this->paused_time_ = 0;
-      this->checked_time_ = -1;
-      this->paused_ = false;
-      this->distraction_count = 0;
+      Stop();
+    }
+
+    void IncrementDisctractionCount(){
+      distraction_count_++;
+      this->LogSheetMessage("Distracted");
     }
     
-    int distraction_count;
+    int GetDistractionCount(){
+      return distraction_count_;
+    }
+    
     bool animate;
 
   private:
@@ -85,7 +122,6 @@ class Pomodoro {
     int distraction_count_;
     bool paused_;
     unsigned long completed_count_;
-
     
     String formatNumber(String inp){
       if (inp.length()==1) {
@@ -103,36 +139,12 @@ class Pomodoro {
     String minuteStr(unsigned long inp){
      return  formatNumber(String(minute(inp)));
     }
+
+    void LogSheetMessage(String message) {
+      googlesheet::postData("Pomodoro", message);
+    }
+
 };
 
-class Counter {
-  public:
-    Counter(unsigned int led_time){
-      this->led_time_ = led_time * 60;
-      this->last_press_ = round(millis() / 1000);
-    }
-
-    unsigned int GetCount() {
-      return this->count_ % 10;
-    }
-
-   void Increment() {
-      this->last_press_ = round(millis() / 1000);
-      this->count_++;
-    }
-
-    bool LedOn() {
-     int current_time = round(millis() / 1000);
-     if(this->led_time_ > 0) {
-      return ((current_time - this->last_press_) > this->led_time_);    
-     } else {
-      return (this->count_ /10) % 2 > 0;
-     }
-    }
-
-  private:
-    unsigned int count_ = 0;
-    unsigned int last_press_ = 0;
-    unsigned int led_time_;
-};
+#endif
 
