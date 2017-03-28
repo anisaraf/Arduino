@@ -17,6 +17,11 @@ void setup(){
 }
 
 void loop(){
+  if (WiFi.status() != WL_CONNECTED) {
+    delay(1);
+    web::ConnectWiFi();
+    return;
+  }
   web::CheckOTAUpdates();
   timedCheckButtons.check();
   timedDisplayUpdate.check();
